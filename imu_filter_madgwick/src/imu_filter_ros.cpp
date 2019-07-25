@@ -52,6 +52,8 @@ ImuFilterRos::ImuFilterRos(ros::NodeHandle nh, ros::NodeHandle nh_private):
     publish_debug_topics_= false;
   if (!nh_private_.getParam ("use_magnetic_field_msg", use_magnetic_field_msg_))
     use_magnetic_field_msg_ = true;
+  if (!nh_private_.getParam ("header_frame", header_frame_))
+    header_frame_ = "";
 
   std::string world_frame;
   if (!nh_private_.getParam ("world_frame", world_frame))
@@ -158,7 +160,13 @@ void ImuFilterRos::imuCallback(const ImuMsg::ConstPtr& imu_msg_raw)
   const geometry_msgs::Vector3& lin_acc = imu_msg_raw->linear_acceleration;
 
   ros::Time time = imu_msg_raw->header.stamp;
-  imu_frame_ = imu_msg_raw->header.frame_id;
+  if (header_frame_.length() == 0) {
+    imu_frame_ = imu_msg_raw->header.frame_id;
+  }
+  else{
+    imu_frame_ = header_frame_;
+  }
+  // imu_msg_raw->header.frame_id = imu_frame_;
 
   if (!initialized_ || stateless_)
   {
@@ -217,7 +225,13 @@ void ImuFilterRos::imuMagCallback(
   const geometry_msgs::Vector3& mag_fld = mag_msg->magnetic_field;
 
   ros::Time time = imu_msg_raw->header.stamp;
-  imu_frame_ = imu_msg_raw->header.frame_id;
+  if (header_frame_.length() == 0) {
+    imu_frame_ = imu_msg_raw->header.frame_id;
+  }
+  else {
+    imu_frame_ = header_frame_;
+  }
+  // imu_msg_raw->header.frame_id = imu_frame_;
 
   /*** Compensate for hard iron ***/
   geometry_msgs::Vector3 mag_compensated;
@@ -298,6 +312,8 @@ void ImuFilterRos::publishTransform(const ImuMsg::ConstPtr& imu_msg_raw)
   filter_.getOrientation(q0,q1,q2,q3);
   geometry_msgs::TransformStamped transform;
   transform.header.stamp = imu_msg_raw->header.stamp;
+  transform.header.frame_id = imu_frame_;
+
   if (reverse_tf_)
   {
     transform.header.frame_id = imu_frame_;
@@ -327,7 +343,8 @@ void ImuFilterRos::publishFilteredMsg(const ImuMsg::ConstPtr& imu_msg_raw)
   // create and publish filtered IMU message
   boost::shared_ptr<ImuMsg> imu_msg =
     boost::make_shared<ImuMsg>(*imu_msg_raw);
-
+  // imu_msg->header.frame_id = "jackal/imu_link";
+  imu_msg->header.frame_id = imu_frame_;
   imu_msg->orientation.w = q0;
   imu_msg->orientation.x = q1;
   imu_msg->orientation.y = q2;
@@ -350,7 +367,7 @@ void ImuFilterRos::publishFilteredMsg(const ImuMsg::ConstPtr& imu_msg_raw)
     geometry_msgs::Vector3Stamped rpy;
     tf2::Matrix3x3(tf2::Quaternion(q1,q2,q3,q0)).getRPY(rpy.vector.x, rpy.vector.y, rpy.vector.z);
 
-    rpy.header = imu_msg_raw->header;
+    rpy.header = imu_msg->header;
     rpy_filtered_debug_publisher_.publish(rpy);
   }
 }

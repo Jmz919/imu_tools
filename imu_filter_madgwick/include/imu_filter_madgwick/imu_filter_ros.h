@@ -92,6 +92,7 @@ class ImuFilterRos
     std::string imu_frame_;
     double constant_dt_;
     bool publish_debug_topics_;
+    std::string header_frame_;
     geometry_msgs::Vector3 mag_bias_;
     double orientation_variance_;
 
